@@ -64,6 +64,9 @@ export const getOpportunityById = async (req, res) => {
         opportunity_owner: { select: { user_name: true } },
         opportunity_account: { select: { account_name: true } },
         opportunity_contact: { select: { contact_firstname: true, contact_lastname: true } },
+        opportunity_campaign: {
+          select: { campaign_id: true, campaign_name: true, campaign_code: true, campaign_status: true },
+        },
       },
     });
 

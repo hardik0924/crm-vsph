@@ -42,11 +42,22 @@ const findTenantUser = (userId, tenantId) =>
     },
   });
 
+const RELATED_RECORDS = {
+  contact: "contact_id",
+  call: "call_id",
+  campaign: "campaign_id",
+};
+
 const assertRelatedRecord = async (model, id, tenantId, label) => {
   if (!id) return { ok: true };
+  const key = RELATED_RECORDS[model];
   const record = await prisma[model].findFirst({
-    where: { [model === "contact" ? "contact_id" : "call_id"]: id, tenant_fk: tenantId },
-    select: { [model === "contact" ? "contact_id" : "call_id"]: true },
+    where: {
+      [key]: id,
+      tenant_fk: tenantId,
+      ...(model === "campaign" ? { campaign_deleted_at: null } : {}),
+    },
+    select: { [key]: true },
   });
   return record ? { ok: true } : { ok: false, message: `The linked ${label} does not belong to this organization.` };
 };
@@ -57,6 +68,7 @@ export const createTask = async (req, res) => {
       task_user_fk,
       task_call_fk,
       task_contact_fk,
+      task_campaign_fk,
       task_subject,
       task_description,
       task_priority,
@@ -103,6 +115,8 @@ export const createTask = async (req, res) => {
     if (!contactCheck.ok) return res.status(400).json({ success: false, message: contactCheck.message });
     const callCheck = await assertRelatedRecord("call", task_call_fk, tenantId, "call");
     if (!callCheck.ok) return res.status(400).json({ success: false, message: callCheck.message });
+    const campaignCheck = await assertRelatedRecord("campaign", task_campaign_fk, tenantId, "campaign");
+    if (!campaignCheck.ok) return res.status(400).json({ success: false, message: campaignCheck.message });
 
     const newTask = await prisma.task.create({
       data: {
@@ -111,6 +125,7 @@ export const createTask = async (req, res) => {
         task_assigned_by_fk: req.user.id,
         task_call_fk: task_call_fk || null,
         task_contact_fk: task_contact_fk || null,
+        task_campaign_fk: task_campaign_fk || null,
         task_subject: String(task_subject).trim(),
         task_description: task_description || null,
         task_priority: task_priority || "NORMAL",
@@ -131,7 +146,7 @@ export const createTask = async (req, res) => {
 
 export const getTasks = async (req, res) => {
   try {
-    const { user_id, assigned_to, call_id, contact_id, status, page = 1, limit = 20, search = "" } = req.query;
+    const { user_id, assigned_to, call_id, contact_id, campaign_id, status, page = 1, limit = 20, search = "" } = req.query;
     const take = Math.max(1, Number(limit) || 20);
     const skip = (Math.max(1, Number(page) || 1) - 1) * take;
 
@@ -148,6 +163,7 @@ export const getTasks = async (req, res) => {
 
     if (call_id) where.task_call_fk = call_id;
     if (contact_id) where.task_contact_fk = contact_id;
+    if (campaign_id) where.task_campaign_fk = campaign_id;
     if (status) {
       if (!isTaskStatus(status)) {
         return res.status(400).json({ success: false, message: "Invalid task status filter." });
@@ -230,7 +246,7 @@ export const updateTask = async (req, res) => {
       if (!guard.ok) return res.status(403).json({ success: false, message: guard.message });
       note = req.body.note !== undefined ? String(req.body.note || "").trim() || null : null;
     } else {
-      for (const field of ["task_subject", "task_description", "task_priority", "task_contact_fk", "task_call_fk"]) {
+      for (const field of ["task_subject", "task_description", "task_priority", "task_contact_fk", "task_call_fk", "task_campaign_fk"]) {
         if (req.body[field] !== undefined) {
           data[field] = req.body[field] === "" ? null : req.body[field];
         }
@@ -270,6 +286,10 @@ export const updateTask = async (req, res) => {
       }
       if (data.task_call_fk) {
         const check = await assertRelatedRecord("call", data.task_call_fk, existing.tenant_fk, "call");
+        if (!check.ok) return res.status(400).json({ success: false, message: check.message });
+      }
+      if (data.task_campaign_fk) {
+        const check = await assertRelatedRecord("campaign", data.task_campaign_fk, existing.tenant_fk, "campaign");
         if (!check.ok) return res.status(400).json({ success: false, message: check.message });
       }
       note = req.body.note !== undefined ? String(req.body.note || "").trim() || null : null;

@@ -497,7 +497,15 @@ export const getContactById = async (req, res) => {
         contact_owner: { select: { user_name: true } },
         contact_industry: { select: { industry_name: true } },
         contact_project: { select: { project_name: true } },
-        contact_campaign: true,
+        contact_campaign: {
+          select: {
+            campaign_id: true,
+            campaign_name: true,
+            campaign_code: true,
+            campaign_status: true,
+            campaign_type: true,
+          },
+        },
         contact_account_billing_address: true,
         contact_account_shipping_address: true,
         opportunities: {

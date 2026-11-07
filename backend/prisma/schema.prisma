@@ -63,6 +63,7 @@ model user {
   user_contacts       contact[]     @relation("contact_user")
   user_owned_contacts contact[]     @relation("contact_owner")
   user_campaigns      campaign[]    @relation("campaign_user")
+  created_campaigns   campaign[]    @relation("campaign_created_by")
   user_calls          call[]        @relation("call_user")
   user_tasks          task[]        @relation("task_user")
   tasks_assigned      task[]        @relation("task_assigned_by")
@@ -351,6 +352,9 @@ model task {
   task_contact_fk String?
   contact         contact? @relation("contact_tasks", fields: [task_contact_fk], references: [contact_id])
 
+  task_campaign_fk String?
+  campaign         campaign? @relation("campaign_tasks", fields: [task_campaign_fk], references: [campaign_id])
+
   task_subject     String?
   task_description String?
   task_priority    priority? @default(NORMAL)
@@ -368,6 +372,7 @@ model task {
 
   @@index([task_user_fk])
   @@index([task_contact_fk])
+  @@index([task_campaign_fk])
   @@index([task_status])
   @@index([task_user_fk, task_status])
   @@index([tenant_fk])
@@ -409,16 +414,42 @@ model campaign {
   campaign_user_fk String?
   user             user?   @relation("campaign_user", fields: [campaign_user_fk], references: [user_id])
 
-  campaign_name       String?
+  campaign_created_by_fk String?
+  created_by             user?   @relation("campaign_created_by", fields: [campaign_created_by_fk], references: [user_id])
+
+  campaign_name        String?
+  campaign_code        String?
+  campaign_type        campaign_type?   @default(OTHER)
+  campaign_objective   String?          @db.Text
+  campaign_description String?          @db.Text
+  campaign_status      campaign_status  @default(DRAFT)
+  campaign_priority    priority         @default(NORMAL)
+
+  campaign_start_date  DateTime?
+  campaign_end_date    DateTime?
+  campaign_launch_date DateTime?
+
+  campaign_planned_budget   Decimal? @db.Decimal(18, 2)
+  campaign_actual_cost      Decimal? @db.Decimal(18, 2)
+  campaign_expected_revenue Decimal? @db.Decimal(18, 2)
+
+  campaign_target_contacts      Int?
+  campaign_target_leads         Int?
+  campaign_target_opportunities Int?
+
   campaign_created_at DateTime  @default(now())
   campaign_updated_at DateTime  @updatedAt
   campaign_deleted_at DateTime?
 
   contacts      contact[]
   opportunities opportunity[]
+  tasks         task[]        @relation("campaign_tasks")
 
+  @@unique([tenant_fk, campaign_code])
   @@index([campaign_user_fk])
   @@index([tenant_fk])
+  @@index([tenant_fk, campaign_status])
+  @@index([campaign_start_date])
   @@index([campaign_deleted_at])
   @@map("campaigns")
 }
@@ -656,6 +687,27 @@ enum priority {
   NORMAL
   HIGH
   LOW
+}
+
+enum campaign_type {
+  EMAIL
+  SOCIAL_MEDIA
+  WEBINAR
+  EVENT
+  ADVERTISEMENT
+  PHONE_OUTREACH
+  DIRECT_MARKETING
+  REFERRAL
+  OTHER
+}
+
+enum campaign_status {
+  DRAFT
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
 }
 
 enum task_status {
