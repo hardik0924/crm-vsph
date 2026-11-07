@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Download, Plus, Search, Eye, Edit2, Loader2, Trash2, Users,
+  Plus, Search, Edit2, Loader2, Trash2, Users, RefreshCw, X,
 } from "lucide-react";
 import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
+import StatCard from "../components/ui/StatCard";
 import { api } from "../utils/api";
 import { exportCsv } from "../utils/csv";
 import AddContactModal from "../components/modals/AddContactModal";
@@ -12,18 +13,52 @@ import ConDetailView from "../components/ConDetailView";
 import { canDoAction } from "../utils/modules";
 import toast from "react-hot-toast";
 
+const CALL_STATUSES = [
+  "RINGING",
+  "PITCH_DONE",
+  "NOT_INTERESTED",
+  "NOT_RELEVANT",
+  "LEFT_ORGANIZATION",
+  "NOT_AVAILABLE",
+  "CONNECTED",
+  "NOT_CONNECTED",
+  "WRONG_NUMBER",
+  "DNC",
+];
+
 const formatName = (c) =>
   [c.contact_salutation, c.contact_firstname, c.contact_lastname, c.contact_suffix]
     .filter(Boolean)
     .join(" ") || "—";
 
+const callStatusBadge = (status) => {
+  const variants = {
+    CONNECTED: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    PITCH_DONE: "bg-vsph-core-blue/10 text-vsph-core-blue border-vsph-core-blue/20",
+    FOLLOW_UP: "bg-vsph-light-blue/20 text-vsph-core-blue border-vsph-light-blue/20",
+    NOT_INTERESTED: "bg-rose-50 text-rose-700 border-rose-100",
+    NOT_RELEVANT: "bg-slate-50 text-slate-600 border-slate-100",
+    LEFT_ORGANIZATION: "bg-rose-50 text-rose-700 border-rose-100",
+    NOT_AVAILABLE: "bg-amber-50 text-amber-700 border-amber-100",
+    NOT_CONNECTED: "bg-rose-50 text-rose-700 border-rose-100",
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${variants[status] || variants.NOT_RELEVANT}`}>
+      {status ? status.replace(/_/g, " ") : "—"}
+    </span>
+  );
+};
+
 const Contacts = () => {
-  const [totalRecords, setTotalRecords] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [selectAll, setSelectAll] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
   const [contactsData, setContactsData] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(20);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -38,24 +73,31 @@ const Contacts = () => {
   useEffect(() => {
     const contactId = searchParams.get("contact_id");
     if (contactId) setViewContactId(contactId);
+  }, [searchParams]);
+
+  useEffect(() => {
     const t = setTimeout(() => fetchContacts(), 300);
     return () => clearTimeout(t);
-  }, [searchTerm, currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter, currentPage]);
 
   const fetchContacts = async () => {
     try {
       setLoading(true);
-      const query = `?page=${currentPage}&limit=${limit}${
-        searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ""
-      }`;
-      const response = await api.get(`/api/contacts${query}`);
+      setError("");
+      const params = new URLSearchParams({ page: currentPage, limit });
+      if (searchTerm) params.set("search", searchTerm);
+      if (statusFilter) params.set("status", statusFilter);
+      const response = await api.get(`/api/contacts?${params.toString()}`);
       if (response.success) {
-        setContactsData(response.data);
-        setTotalRecords(response.pagination.totalRecords);
+        setContactsData(response.data || []);
+        setTotalRecords(response.pagination?.totalRecords || 0);
+        setSummary(response.summary || null);
+      } else {
+        setError(response.message || "Could not load contacts.");
       }
-    } catch (error) {
-      console.error("Failed to fetch contacts", error);
-      toast.error("Failed to load contacts");
+    } catch {
+      setError("Could not reach the CRM API.");
     } finally {
       setLoading(false);
     }
@@ -110,27 +152,11 @@ const Contacts = () => {
     }
   };
 
-  const callStatusBadge = (status) => {
-    const variants = {
-      CONNECTED: "bg-emerald-50 text-emerald-700 border-emerald-100",
-      PITCH_DONE: "bg-vsph-core-blue/10 text-vsph-core-blue border-vsph-core-blue/20",
-      FOLLOW_UP: "bg-vsph-light-blue/20 text-vsph-core-blue border-vsph-light-blue/20",
-      NOT_INTERESTED: "bg-rose-50 text-rose-700 border-rose-100",
-      NOT_RELEVANT: "bg-slate-50 text-slate-600 border-slate-100",
-      LEFT_ORGANIZATION: "bg-rose-50 text-rose-700 border-rose-100",
-      NOT_AVAILABLE: "bg-amber-50 text-amber-700 border-amber-100",
-      NOT_CONNECTED: "bg-rose-50 text-rose-700 border-rose-100",
-    };
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${variants[status] || variants.NOT_RELEVANT}`}>
-        {status ? status.replace(/_/g, " ") : "—"}
-      </span>
-    );
-  };
+  const byStatus = summary?.byCallStatus || {};
+  const hasFilters = Boolean(searchTerm || statusFilter);
 
   return (
-    <div className="flex flex-col h-full bg-page-bg animate-fade-in relative overflow-hidden">
-      {/* Page Header */}
+    <div className="flex flex-col h-full bg-page-bg animate-fade-in">
       <PageHeader
         title="Contacts"
         description="Manage your organization's contacts and relationships"
@@ -146,92 +172,151 @@ const Contacts = () => {
               { label: "Owner", value: (row) => row.contact_owner?.user_name },
             ]),
         }}
-        primaryAction={{
-          label: "New contact",
-          icon: <Plus size={16} />,
-          onClick: () => setIsAddModalOpen(true),
-        }}
+        primaryAction={
+          canCreate
+            ? {
+                label: "New contact",
+                icon: <Plus size={16} />,
+                onClick: () => setIsAddModalOpen(true),
+              }
+            : undefined
+        }
       />
 
-      {/* Search & Actions Bar */}
-      <div className="px-8 py-4 border-b border-border surface flex items-center justify-between shrink-0">
-        <div className="relative w-80">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <Search size={18} className="text-slate-400" />
-          </div>
-          <input
-            type="text"
-            placeholder="Search contacts&hellip;"
-            className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-vsph-core-blue focus:border-vsph-core-blue"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+          <StatCard label="Total contacts" value={summary?.total} />
+          <StatCard label="Connected" value={byStatus.CONNECTED} tone="text-emerald-600" />
+          <StatCard label="Pitch done" value={byStatus.PITCH_DONE} tone="text-vsph-core-blue" />
+          <StatCard label="Not interested" value={byStatus.NOT_INTERESTED} tone="text-rose-600" />
+          <StatCard label="With account" value={summary?.withAccount} tone="text-amber-600" />
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          {canDelete && selectedRows.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBulkDelete}
-              className="gap-2 font-semibold text-danger border border-rose-100 hover:bg-rose-50"
-            >
-              <Trash2 size={16} /> Delete selected ({selectedRows.length})
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {/* Table */}
-      <div className="flex-1 p-8 overflow-hidden flex flex-col">
-        <div className="card flex-1 flex flex-col overflow-hidden">
-          <div className="overflow-auto flex-1">
+        <div className="card border-border">
+          <div className="p-4 border-b border-border flex flex-wrap items-center gap-3">
+            <div className="relative w-72">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search contacts…"
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-vsph-core-blue focus:border-vsph-core-blue"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-48 px-3 py-2 border border-border rounded-lg text-sm bg-white"
+              aria-label="Filter by call status"
+            >
+              <option value="">All call statuses</option>
+              {CALL_STATUSES.map((status) => (
+                <option key={status} value={status}>{status.replace(/_/g, " ")}</option>
+              ))}
+            </select>
+
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("");
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-vsph-core-blue hover:underline"
+              >
+                <X size={14} /> Clear filters
+              </button>
+            )}
+
+            {canDelete && selectedRows.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="gap-2 font-semibold text-danger border border-rose-100 hover:bg-rose-50 ml-auto"
+              >
+                <Trash2 size={16} /> Delete selected ({selectedRows.length})
+              </Button>
+            )}
+          </div>
+
+          {error && (
+            <div className="px-4 py-3 bg-rose-50 border-b border-rose-100 text-sm text-rose-700 flex items-center justify-between">
+              {error}
+              <button onClick={fetchContacts} className="inline-flex items-center gap-1 font-semibold hover:underline">
+                <RefreshCw size={14} /> Retry
+              </button>
+            </div>
+          )}
+
+          <div className="overflow-auto">
             <div className="table-container">
-              <table className="table-modern" style={{ tableLayout: "fixed" }}>
+              <table className="table-modern">
                 <thead className="sticky top-0 z-10">
                   <tr>
-                    <th className="w-10 min-w-[44px] max-w-[44px] text-center z-10">
+                    <th className="w-10 min-w-[44px] text-center">
                       {canDelete && (
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 text-vsph-core-blue focus:ring-vsph-core-blue cursor-pointer"
                           checked={selectAll}
                           onChange={toggleSelectAll}
+                          aria-label="Select all contacts"
                         />
                       )}
                     </th>
-                    <th className="w-80 min-w-[240px]">Contact Name</th>
-                    <th className="w-48 min-w-[144px]">Code</th>
-                    <th className="w-64 min-w-[192px]">Account</th>
-                    <th className="w-56 min-w-[168px]">Email</th>
-                    <th className="w-48 min-w-[144px]">Owner</th>
-                    <th className="w-40 min-w-[128px] text-center">Call Status</th>
-                    <th className="w-24 min-w-[96px] text-center sticky right-0 shadow-[-1px_0_0_rgba(0,0,0,0.05)] z-10">Actions</th>
+                    <th className="min-w-[220px]">Contact</th>
+                    <th className="min-w-[160px]">Account</th>
+                    <th className="min-w-[200px]">Email</th>
+                    <th className="min-w-[120px]">Owner</th>
+                    <th className="min-w-[140px] text-center">Call status</th>
+                    <th className="min-w-[96px] text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border bg-surface">
                   {loading ? (
                     <tr>
-                      <td colSpan="8" className="py-24 text-center text-secondary">
+                      <td colSpan="7" className="py-24 text-center text-secondary">
                         <div className="flex flex-col items-center justify-center gap-3">
                           <Loader2 className="animate-spin text-vsph-core-blue" size={28} />
-                          <p className="text-sm font-medium">Loading contacts&hellip;</p>
+                          <p className="text-sm font-medium">Loading contacts…</p>
                         </div>
                       </td>
                     </tr>
                   ) : contactsData.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="py-24 text-center text-secondary font-medium">
+                      <td colSpan="7" className="py-24 text-center text-secondary font-medium">
                         <div className="flex flex-col items-center justify-center gap-2">
-                          <Users size={48} className="text-slate-200 mx-auto" />
-                          <p>No contacts found.</p>
-                          {canCreate && (
+                          <Users size={44} className="text-slate-200" />
+                          <p>{hasFilters ? "No contacts match these filters." : "No contacts yet."}</p>
+                          {hasFilters ? (
+                            <button
+                              onClick={() => {
+                                setSearchTerm("");
+                                setStatusFilter("");
+                                setCurrentPage(1);
+                              }}
+                              className="mt-2 text-xs font-semibold text-vsph-core-blue hover:underline"
+                            >
+                              Clear filters
+                            </button>
+                          ) : canCreate ? (
                             <button
                               onClick={() => setIsAddModalOpen(true)}
-                              className="mt-3 text-xs font-semibold text-vsph-core-blue hover:underline"
+                              className="mt-2 text-xs font-semibold text-vsph-core-blue hover:underline"
                             >
                               Add your first contact
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -240,59 +325,46 @@ const Contacts = () => {
                       <tr
                         key={contact.contact_id}
                         className={`hover:bg-vsph-light-blue/20 group cursor-pointer transition-colors ${selectedRows.includes(contact.contact_id) ? "bg-vsph-light-blue/30" : ""}`}
+                        onClick={() => setViewContactId(contact.contact_id)}
                       >
-                        <td className="border-b border-border px-6 py-4 text-center">
+                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                           {canDelete && (
                             <input
                               type="checkbox"
                               className="rounded border-slate-300 text-vsph-core-blue focus:ring-vsph-core-blue cursor-pointer"
                               checked={selectedRows.includes(contact.contact_id)}
                               onChange={(e) => { e.stopPropagation(); toggleRow(contact.contact_id); }}
+                              aria-label={`Select ${formatName(contact)}`}
                             />
                           )}
                         </td>
-                        <td
-                          className="border-b border-border px-6 py-4 font-medium text-sidebar hover:underline cursor-pointer truncate group-hover:text-vsph-core-blue"
-                          onClick={(e) => { e.preventDefault(); setViewContactId(contact.contact_id); }}
-                        >
-                          {formatName(contact)}
-                        </td>
-                        <td className="border-b border-border px-6 py-4 text-xs text-slate-500 font-mono truncate">
-                          {contact.contact_code || "-"}
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-sidebar group-hover:text-vsph-core-blue truncate max-w-[260px]">
+                            {formatName(contact)}
+                          </p>
+                          <p className="text-[11px] text-secondary">{contact.contact_code || "No code"}</p>
                         </td>
                         <td
-                          className="border-b border-border px-6 py-4 text-vsph-core-blue hover:underline cursor-pointer truncate group-hover:text-sidebar"
+                          className="px-4 py-3 text-vsph-core-blue hover:underline cursor-pointer truncate"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (contact.contact_account_fk) navigate(`/v2/accounts?account_id=${contact.contact_account_fk}`);
                           }}
                         >
-                          {contact.account?.account_name || "-"}
+                          {contact.account?.account_name || "—"}
                         </td>
-                        <td className="border-b border-border px-6 py-4 text-slate-600 truncate">
-                          {contact.contact_professional_email || contact.contact_personal_email || "-"}
+                        <td className="px-4 py-3 text-slate-600 truncate">
+                          {contact.contact_professional_email || contact.contact_personal_email || "—"}
                         </td>
-                        <td className="border-b border-border px-6 py-4 text-slate-600 truncate">
-                          {contact.contact_owner?.user_name || "-"}
+                        <td className="px-4 py-3 text-slate-600 truncate">
+                          {contact.contact_owner?.user_name || "—"}
                         </td>
-                        <td className="border-b border-border px-6 py-4 text-center">
-                          {contact.contact_call_status ? (
-                            <span className="px-2 py-1 bg-vsph-light-blue/20 text-vsph-core-blue text-xs rounded font-medium">
-                              {contact.contact_call_status.replace(/_/g, " ")}
-                            </span>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                        <td className={`px-6 py-4 text-center sticky right-0 group-hover:bg-vsph-light-blue/20 shadow-[-1px_0_0_rgba(0,0,0,0.05)] ${selectedRows.includes(contact.contact_id) ? "bg-vsph-light-blue/30" : "bg-surface"}`}>
-                          <div className="flex items-center justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => setViewContactId(contact.contact_id)}
-                              className="btn-icon"
-                              title="View"
-                            >
-                              <Eye size={16} />
-                            </button>
+                        <td className="px-4 py-3 text-center">{callStatusBadge(contact.contact_call_status)}</td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="flex items-center justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {canEdit && (
                               <button
                                 onClick={() => { setContactToEdit(contact); setIsAddModalOpen(true); }}
@@ -304,7 +376,7 @@ const Contacts = () => {
                             )}
                             {canDelete && (
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(contact); }}
+                                onClick={() => handleDelete(contact)}
                                 className="p-2 rounded text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors"
                                 title="Delete"
                               >
@@ -321,11 +393,10 @@ const Contacts = () => {
             </div>
           </div>
 
-          {/* Pagination */}
-          <div className="px-8 py-4 border-t border-border surface flex items-center justify-between shrink-0">
+          <div className="px-6 py-4 border-t border-border surface flex items-center justify-between">
             <span className="text-xs text-secondary font-medium">
               Showing {totalRecords === 0 ? 0 : (currentPage - 1) * limit + 1} to{" "}
-              {Math.min(currentPage * limit, totalRecords)} of {totalRecords} records
+              {Math.min(currentPage * limit, totalRecords)} of {totalRecords} contacts
             </span>
             <div className="flex items-center gap-3">
               <Button
