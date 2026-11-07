@@ -6,6 +6,10 @@ import {
   deleteProjects,
   getProjectEnums,
   getProjectById,
+  linkContacts,
+  unlinkContact,
+  linkOpportunities,
+  unlinkOpportunity,
 } from "../controllers/project.controller.js";
 import { requirePermission } from "../middleware/auth.middleware.js";
 
@@ -17,9 +21,15 @@ const remove = requirePermission("PROJECTS", "DELETE");
 
 router.get("/enums", view, getProjectEnums);
 router.get("/", view, getProjects);
-router.get("/:id", view, getProjectById);
 router.post("/", create, createProject);
+router.get("/:id", view, getProjectById);
 router.put("/:id", edit, updateProject);
 router.post("/delete", remove, deleteProjects);
+
+// Contact and opportunity relationships share the project edit permission.
+router.post("/:id/contacts", edit, linkContacts);
+router.delete("/:id/contacts/:contactId", edit, unlinkContact);
+router.post("/:id/opportunities", edit, linkOpportunities);
+router.delete("/:id/opportunities/:opportunityId", edit, unlinkOpportunity);
 
 export default router;

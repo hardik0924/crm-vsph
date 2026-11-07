@@ -67,6 +67,9 @@ export const getOpportunityById = async (req, res) => {
         opportunity_campaign: {
           select: { campaign_id: true, campaign_name: true, campaign_code: true, campaign_status: true },
         },
+        opportunity_project: {
+          select: { project_id: true, project_name: true, project_location: true },
+        },
       },
     });
 
