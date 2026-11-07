@@ -398,6 +398,7 @@ const Accounts = () => {
           onClose={() => setViewAccountId(null)}
           accountId={viewAccountId}
           onEdit={(acc) => { setViewAccountId(null); setAccountToEdit(acc); setIsAddModalOpen(true); }}
+          onDeleted={fetchAccounts}
         />
       )}
     </div>

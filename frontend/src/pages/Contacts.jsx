@@ -431,6 +431,7 @@ const Contacts = () => {
           isOpen={!!viewContactId}
           onClose={() => setViewContactId(null)}
           contactId={viewContactId}
+          onDeleted={fetchContacts}
         />
       )}
     </div>

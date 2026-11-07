@@ -3,25 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 import {
   MoreHorizontal,
-  UserPlus,
   Edit,
   Phone,
   Mail,
   CheckCircle,
-  Bell,
   Save,
   Clock,
-  ChevronDown,
   User,
-  ExternalLink,
 } from "lucide-react";
 import Button from "./ui/Button";
 import AddContactModal from "./modals/AddContactModal";
-import AddCampaignModal from "./modals/AddCampaignModal";
 import Breadcrumbs from "./ui/Breadcrumbs";
 import { canDoAction, hasModule } from "../utils/modules";
+import toast from "react-hot-toast";
 
-const ConDetailView = ({ isOpen, onClose, contactId }) => {
+const ConDetailView = ({ isOpen, onClose, contactId, onDeleted }) => {
   const navigate = useNavigate();
   const canEditContact = canDoAction("CONTACTS", "EDIT");
   const canDeleteContact = canDoAction("CONTACTS", "DELETE");
@@ -33,8 +29,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
   const [currentUser, setCurrentUser] = useState(null);
 
   // Modal states
-  const [addContactOpen, setAddContactOpen] = useState(false);
-  const [addCampaignOpen, setAddCampaignOpen] = useState(false);
   const [editContactOpen, setEditContactOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
@@ -52,6 +46,8 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
   const [taskDueTimeAMPM, setTaskDueTimeAMPM] = useState("PM");
   const [savingTask, setSavingTask] = useState(false);
   const [tasksList, setTasksList] = useState([]);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
 
   useEffect(() => {
     const userId = localStorage.getItem("vsph_user_id");
@@ -214,14 +210,14 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
     if (window.confirm(`Delete contact "${fullName}"?`)) {
       api.delete(`/api/contacts/${contactId}`).then((res) => {
         if (res.success) {
+          toast.success("Contact deleted");
           onClose();
+          onDeleted?.();
+        } else {
+          toast.error(res.message || "Could not delete contact");
         }
       });
     }
-  };
-
-  const handleAddToCampaign = () => {
-    setAddCampaignOpen(true);
   };
 
   const handleViewAccount = () => {
@@ -301,16 +297,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <Button
                       variant="primary"
                       size="sm"
-                      onClick={handleAddToCampaign}
-                      className="gap-2 font-semibold bg-blue-600 hover:bg-blue-700"
-                    >
-                      <UserPlus size={14} strokeWidth={2.5} /> Add to Campaign
-                    </Button>
-                  )}
-                  {canEditContact && (
-                    <Button
-                      variant="primary"
-                      size="sm"
                       onClick={handleEditContact}
                       className="gap-2 font-semibold bg-blue-600 hover:bg-blue-700"
                     >
@@ -357,7 +343,14 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                   <span className="text-sm font-semibold text-blue-600 flex items-center gap-1.5">
                     <Phone size={14} /> {mobile}
                   </span>
-                  <button className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMainTab("Details");
+                      setActiveSidebarTab("Call");
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 mt-2"
+                  >
                     <Phone size={10} /> Log Call
                   </button>
                 </div>
@@ -412,7 +405,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       Contact Information
                     </h3>
-                    <ChevronDown size={16} className="text-slate-400" />
                   </div>
 
                   <div className="flex flex-col">
@@ -605,7 +597,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       Contact Details
                     </h3>
-                    <ChevronDown size={16} className="text-slate-400" />
                   </div>
                   <div className="flex flex-col">
                     <GridRow
@@ -663,7 +654,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       Billing Address
                     </h3>
-                    <ChevronDown size={16} className="text-slate-400" />
                   </div>
                   <div className="flex flex-col">
                     <GridRow
@@ -703,7 +693,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       Shipping Address
                     </h3>
-                    <ChevronDown size={16} className="text-slate-400" />
                   </div>
                   <div className="flex flex-col">
                     <GridRow
@@ -743,7 +732,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       Mailing Address
                     </h3>
-                    <ChevronDown size={16} className="text-slate-400" />
                   </div>
                   <div className="flex flex-col">
                     <GridRow
@@ -770,7 +758,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                     <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       Pick & Drop
                     </h3>
-                    <ChevronDown size={16} className="text-slate-400" />
                   </div>
                   <div className="flex flex-col">
                     <GridRow
@@ -847,9 +834,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                           </button>
                         ))}
                       </div>
-                      <button className="p-1.5 text-slate-400 hover:text-slate-600">
-                        <Bell size={14} />
-                      </button>
                     </div>
 
                     {/* Log A Call Form */}
@@ -1066,6 +1050,8 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                             <input
                               type="text"
                               placeholder="Email subject"
+                              value={emailSubject}
+                              onChange={(e) => setEmailSubject(e.target.value)}
                               className="w-full border border-slate-200 rounded px-3 py-2 text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400"
                             />
                           </div>
@@ -1077,6 +1063,8 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                             <textarea
                               placeholder="Type your email..."
                               rows={4}
+                              value={emailBody}
+                              onChange={(e) => setEmailBody(e.target.value)}
                               className="w-full border border-slate-200 rounded px-3 py-2 text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400 resize-none"
                             />
                           </div>
@@ -1084,13 +1072,16 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                           <Button
                             variant="primary"
                             onClick={() => {
-                              if (contactData.contact_professional_email) {
-                                window.location.href = `mailto:${contactData.contact_professional_email}`;
-                              } else if (contactData.contact_personal_email) {
-                                window.location.href = `mailto:${contactData.contact_personal_email}`;
-                              }
+                              const address = contactData.contact_professional_email || contactData.contact_personal_email;
+                              if (!address) return;
+                              const params = new URLSearchParams();
+                              if (emailSubject) params.set("subject", emailSubject);
+                              if (emailBody) params.set("body", emailBody);
+                              const query = params.toString();
+                              window.location.href = `mailto:${address}${query ? `?${query}` : ""}`;
                             }}
-                            className="w-full gap-2 font-bold justify-center bg-blue-600 py-2.5"
+                            disabled={!(contactData.contact_professional_email || contactData.contact_personal_email)}
+                            className="w-full gap-2 font-bold justify-center bg-blue-600 py-2.5 disabled:opacity-50"
                           >
                             <Mail size={14} /> Send Email
                           </Button>
@@ -1188,7 +1179,13 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                       {contactData.opportunities.map((opportunity) => (
                         <div key={opportunity.opportunity_id} className="p-4 flex justify-between items-center">
                           <div>
-                            <div className="font-semibold text-sm text-blue-600">{opportunity.opportunity_name}</div>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/v2/opportunities?opportunity_id=${opportunity.opportunity_id}`)}
+                              className="font-semibold text-sm text-blue-600 hover:underline text-left"
+                            >
+                              {opportunity.opportunity_name}
+                            </button>
                             <div className="text-xs text-slate-500 mt-0.5">
                               {opportunity.opportunity_stage?.replace(/_/g, ' ') || 'No stage'}
                             </div>
@@ -1216,24 +1213,6 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
           </div>
         )}
       </div>
-
-      {addContactOpen && (
-        <AddContactModal
-          isOpen={addContactOpen}
-          onClose={() => setAddContactOpen(false)}
-          onSuccess={() => setAddContactOpen(false)}
-          contactToEdit={null}
-        />
-      )}
-
-      {addCampaignOpen && (
-        <AddCampaignModal
-          isOpen={addCampaignOpen}
-          onClose={() => setAddCampaignOpen(false)}
-          onSuccess={() => setAddCampaignOpen(false)}
-          campaignToEdit={null}
-        />
-      )}
 
       {editContactOpen && (
         <AddContactModal
@@ -1279,25 +1258,6 @@ const GridRow = ({ left, right }) => (
         {right.icon && right.icon}
       </span>
     </div>
-  </div>
-);
-
-const RelatedItem = ({ name }) => (
-  <div className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer group transition-colors">
-    <div className="flex items-center gap-3">
-      <div className="w-6 h-6 rounded bg-blue-50 flex items-center justify-center text-blue-600">
-        <Users size={12} />
-      </div>
-      <span className="text-[13px] text-blue-600 font-semibold group-hover:underline">{name}</span>
-    </div>
-    <span className="text-slate-400">›</span>
-  </div>
-);
-
-const RecentItem = ({ type, name }) => (
-  <div className="flex items-center gap-2 cursor-pointer group">
-    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{type}</span>
-    <span className="text-[13px] text-blue-600 group-hover:underline font-semibold">{name}</span>
   </div>
 );
 

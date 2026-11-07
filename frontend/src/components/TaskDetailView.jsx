@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../utils/api";
 import {
-  ListChecks, Users, Calendar, Edit2, MoreHorizontal, Clock, Save, History, Loader2,
+  ListChecks, Calendar, Edit2, MoreHorizontal, Clock, Save, History, Loader2,
 } from "lucide-react";
 import Button from "./ui/Button";
-import AddContactModal from "./modals/AddContactModal";
 import AddTaskModal from "./modals/AddTaskModal";
 import Breadcrumbs from "./ui/Breadcrumbs";
 import { canDoAction, canManageOrganization, currentOrgRole } from "../utils/modules";
@@ -43,7 +42,6 @@ const TaskDetailView = ({ isOpen, onClose, taskId, onChanged, onDeleted }) => {
   const [taskData, setTaskData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("Details");
-  const [addContactOpen, setAddContactOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [form, setForm] = useState({ task_status: "TODO", task_progress: 0, note: "" });
@@ -158,14 +156,6 @@ const TaskDetailView = ({ isOpen, onClose, taskId, onChanged, onDeleted }) => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => { setAddContactOpen(true); }}
-                    className="gap-2 font-semibold bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Users size={16} /> New Contact
-                  </Button>
                   {canManage && (
                     <Button
                       variant="primary"
@@ -462,15 +452,6 @@ const TaskDetailView = ({ isOpen, onClose, taskId, onChanged, onDeleted }) => {
           </div>
         )}
       </div>
-
-      {addContactOpen && (
-        <AddContactModal
-          isOpen={addContactOpen}
-          onClose={() => setAddContactOpen(false)}
-          onSuccess={() => setAddContactOpen(false)}
-          contactToEdit={null}
-        />
-      )}
 
       {editOpen && (
         <AddTaskModal

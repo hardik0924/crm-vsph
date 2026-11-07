@@ -406,6 +406,7 @@ const Opportunities = () => {
           onClose={() => setViewOpportunityId(null)}
           opportunityId={viewOpportunityId}
           onEdit={(opp) => { setViewOpportunityId(null); setOpportunityToEdit(opp); setIsAddModalOpen(true); }}
+          onDeleted={fetchOpportunities}
         />
       )}
     </div>
