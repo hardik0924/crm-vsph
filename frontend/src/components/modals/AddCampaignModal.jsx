@@ -247,7 +247,9 @@ const AddCampaignModal = ({ isOpen, onClose, onSuccess, campaignToEdit }) => {
           const linked = await api.post(`/api/campaigns/${saved.campaign_id}/contacts`, {
             contact_ids: addIds,
           });
-          if (linked.success && linked.data?.skipped > 0) {
+          if (!linked.success) {
+            toast.error(linked.message || "Campaign saved, but contacts could not be linked.");
+          } else if (linked.data?.skipped > 0) {
             toast(`${linked.data.skipped} contact(s) skipped because they are already in another campaign.`);
           }
         }
