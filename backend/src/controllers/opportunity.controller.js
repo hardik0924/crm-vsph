@@ -82,8 +82,10 @@ export const getOpportunityById = async (req, res) => {
       where: { opportunity_id: id, ...getTenantFilter(req) },
       include: {
         opportunity_owner: { select: { user_name: true } },
-        opportunity_account: { select: { account_name: true } },
-        opportunity_contact: { select: { contact_firstname: true, contact_lastname: true } },
+        opportunity_account: { select: { account_id: true, account_name: true } },
+        opportunity_contact: {
+          select: { contact_id: true, contact_firstname: true, contact_lastname: true },
+        },
         opportunity_campaign: {
           select: { campaign_id: true, campaign_name: true, campaign_code: true, campaign_status: true },
         },

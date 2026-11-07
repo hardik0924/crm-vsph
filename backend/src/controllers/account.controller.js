@@ -129,6 +129,9 @@ export const getAccountById = async (req, res) => {
         account_billing_address: true,
         account_shipping_address: true,
         account_contacts: true,
+        account_parent: {
+          select: { account_id: true, account_name: true },
+        },
         account_children: {
           select: {
             account_id: true,
