@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from 'react-router-dom';
 
@@ -29,9 +30,8 @@ const Breadcrumbs = ({ items }) => {
         // Separator between items (not before the first)
         if (index > 0) {
           return (
-            <>
+            <Fragment key={`crumb-group-${index}`}>
               <span
-                key={`sep-${index}`}
                 className="mx-2 text-slate-400 select-none"
                 aria-hidden="true"
               >
@@ -39,7 +39,6 @@ const Breadcrumbs = ({ items }) => {
               </span>
               {isLast ? (
                 <span
-                  key={`crumb-${index}`}
                   className="text-slate-700 font-medium truncate"
                   aria-current="page"
                 >
@@ -47,21 +46,17 @@ const Breadcrumbs = ({ items }) => {
                 </span>
               ) : path ? (
                 <NavLink
-                  key={`crumb-${index}`}
                   to={path}
                   className="text-slate-600 hover:text-vsph-core-blue transition-colors truncate"
                 >
                   {label}
                 </NavLink>
               ) : (
-                <span
-                  key={`crumb-${index}`}
-                  className="text-slate-700 font-medium truncate"
-                >
+                <span className="text-slate-700 font-medium truncate">
                   {label}
                 </span>
               )}
-            </>
+            </Fragment>
           );
         }
 

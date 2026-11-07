@@ -204,7 +204,7 @@ const Campaigns = () => {
             <select
               value={filters.status}
               onChange={(event) => setFilter("status", event.target.value)}
-              className="px-3 py-2 border border-border rounded-lg text-sm bg-white"
+              className="w-40 px-3 py-2 border border-border rounded-lg text-sm bg-white"
               aria-label="Filter by status"
             >
               <option value="">All statuses</option>
@@ -216,7 +216,7 @@ const Campaigns = () => {
             <select
               value={filters.type}
               onChange={(event) => setFilter("type", event.target.value)}
-              className="px-3 py-2 border border-border rounded-lg text-sm bg-white"
+              className="w-48 px-3 py-2 border border-border rounded-lg text-sm bg-white"
               aria-label="Filter by type"
             >
               <option value="">All types</option>
@@ -229,7 +229,7 @@ const Campaigns = () => {
               <select
                 value={filters.owner}
                 onChange={(event) => setFilter("owner", event.target.value)}
-                className="px-3 py-2 border border-border rounded-lg text-sm bg-white"
+                className="w-44 px-3 py-2 border border-border rounded-lg text-sm bg-white"
                 aria-label="Filter by owner"
               >
                 <option value="">All owners</option>
@@ -245,7 +245,7 @@ const Campaigns = () => {
                 type="date"
                 value={filters.from}
                 onChange={(event) => setFilter("from", event.target.value)}
-                className="px-2 py-2 border border-border rounded-lg text-sm"
+                className="w-40 px-2 py-2 border border-border rounded-lg text-sm"
               />
             </label>
             <label className="flex items-center gap-2 text-xs text-secondary">
@@ -254,7 +254,7 @@ const Campaigns = () => {
                 type="date"
                 value={filters.to}
                 onChange={(event) => setFilter("to", event.target.value)}
-                className="px-2 py-2 border border-border rounded-lg text-sm"
+                className="w-40 px-2 py-2 border border-border rounded-lg text-sm"
               />
             </label>
 
