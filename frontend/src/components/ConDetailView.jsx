@@ -438,7 +438,12 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                         label: "Campaign",
                         value:
                           contactData.contact_campaign?.campaign_name || "—",
-                        isLink: false,
+                        isLink: !!contactData.contact_campaign,
+                        onClick: () => {
+                          if (contactData.contact_campaign) {
+                            navigate(`/v2/campaigns/${contactData.contact_campaign.campaign_id}`);
+                          }
+                        },
                       }}
                     />
                     <GridRow

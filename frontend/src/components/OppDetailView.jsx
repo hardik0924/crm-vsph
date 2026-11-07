@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 import { TrendingUp, Users, Briefcase, Calendar, Edit2, MoreHorizontal } from "lucide-react";
 import Button from "./ui/Button";
@@ -17,6 +18,7 @@ const STAGE_COLORS = {
 };
 
 const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
+  const navigate = useNavigate();
   const canCreateContact = canDoAction("CONTACTS", "CREATE");
   const canEdit = canDoAction("OPPORTUNITIES", "EDIT");
   const canDelete = canDoAction("OPPORTUNITIES", "DELETE");
@@ -209,6 +211,20 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                               <span className="text-[13px] text-slate-700">
                                 {oppData.opportunity_contact ? `${oppData.opportunity_contact.contact_firstname || ""} ${oppData.opportunity_contact.contact_lastname || ""}`.trim() : "—"}
                               </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Campaign</span>
+                              {oppData.opportunity_campaign ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/v2/campaigns/${oppData.opportunity_campaign.campaign_id}`)}
+                                  className="text-[13px] font-semibold text-blue-600 hover:underline text-left"
+                                >
+                                  {oppData.opportunity_campaign.campaign_name || "Campaign"}
+                                </button>
+                              ) : (
+                                <span className="text-[13px] text-slate-700">—</span>
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Created</span>

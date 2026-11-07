@@ -4,6 +4,7 @@ import Accounts from './pages/Accounts'
 import Opportunities from './pages/Opportunities'
 import Projects from './pages/Projects'
 import Campaigns from './pages/Campaigns'
+import CampaignDetail from './pages/CampaignDetail'
 import Tasks from './pages/Tasks'
 import Team from './pages/Team'
 import AcceptInvite from './pages/AcceptInvite'
@@ -60,6 +61,7 @@ const App = () => {
         <Route path="/v2/opportunities" element={<ModuleGuard code="OPPORTUNITIES"><Opportunities /></ModuleGuard>} />
         <Route path="/v2/projects" element={<ModuleGuard code="PROJECTS"><Projects /></ModuleGuard>} />
         <Route path="/v2/campaigns" element={<ModuleGuard code="CAMPAIGNS"><Campaigns /></ModuleGuard>} />
+        <Route path="/v2/campaigns/:id" element={<ModuleGuard code="CAMPAIGNS"><CampaignDetail /></ModuleGuard>} />
         <Route path="/v2/tasks" element={<ModuleGuard code="TASKS"><Tasks /></ModuleGuard>} />
         <Route path="/v2/team" element={<OrgGuard><Team /></OrgGuard>} />
       </Route>
