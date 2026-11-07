@@ -238,7 +238,7 @@ const AddContactModal = ({
         );
         document.body.style.overflow = "hidden";
         setFieldErrors({});
-        onSuccess();
+        onSuccess(response.data);
         onClose();
       } else {
         toast.error(
