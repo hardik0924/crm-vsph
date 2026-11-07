@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
-import { Users, Target, MoreHorizontal, Edit2, Menu } from "lucide-react";
+import { Users, Target, MoreHorizontal } from "lucide-react";
 import Button from "./ui/Button";
 import AddContactModal from "./modals/AddContactModal";
 import AddOpportunityModal from "./modals/AddOpportunityModal";
 import ActivityFeed from "./ActivityFeed";
 import Breadcrumbs from "./ui/Breadcrumbs";
 import { canDoAction } from "../utils/modules";
+import toast from "react-hot-toast";
 
-const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
+const AccountDetailView = ({ isOpen, onClose, accountId, onEdit, onDeleted }) => {
+  const navigate = useNavigate();
   const canCreateContact = canDoAction("CONTACTS", "CREATE");
   const canCreateOpportunity = canDoAction("OPPORTUNITIES", "CREATE");
   const canEdit = canDoAction("ACCOUNTS", "EDIT");
@@ -112,7 +115,11 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
                               if (window.confirm(`Delete account "${accountData.account_name}"?`)) {
                                 api.delete("/api/accounts", { ids: [accountId] }).then((res) => {
                                   if (res.success) {
+                                    toast.success("Account deleted");
                                     onClose();
+                                    onDeleted?.();
+                                  } else {
+                                    toast.error(res.message || "Could not delete account");
                                   }
                                 });
                               }
@@ -132,7 +139,7 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
               {/* Highlights Panel */}
               <div className="flex flex-wrap gap-12 pt-4 pb-4 border-t border-slate-100">
                 <HighlightItem label="PHONE" value={accountData.account_phone} />
-                <HighlightItem label="INDUSTRY" value={accountData.account_industry} />
+                <HighlightItem label="INDUSTRY" value={accountData.industry?.industry_name || accountData.account_industry} />
                 <HighlightItem label="WEBSITE" value={accountData.account_website} />
                 <HighlightItem label="ACCOUNT OWNER" value={accountData.owner?.user_name} />
                 <HighlightItem label="EMPLOYEES" value={accountData.account_employees_size} />
@@ -181,12 +188,21 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
                           <FieldItem label="ACCOUNT ID" value={accountData.account_code} />
                           <FieldItem label="TYPE" value={accountData.account_type} />
                           <FieldItem label="PHONE" value={accountData.account_phone} />
-                          <FieldItem label="WEBSITE" value={accountData.account_website} isLink hasEdit />
+                          <FieldItem label="WEBSITE" value={accountData.account_website} isLink />
                           <FieldItem label="CITY" value={accountData.account_city} />
                           <FieldItem label="COUNTRY" value={accountData.account_country} />
-                          <FieldItem label="INDUSTRY" value={accountData.account_industry} />
+                          <FieldItem label="INDUSTRY" value={accountData.industry?.industry_name || accountData.account_industry} />
                           <FieldItem label="EMPLOYEE SIZE" value={accountData.account_employees_size} />
-                          <FieldItem label="PARENT ACCOUNT" value="—" />
+                          <FieldItem
+                            label="PARENT ACCOUNT"
+                            value={accountData.account_parent?.account_name}
+                            isLink={!!accountData.account_parent}
+                            onClick={() => {
+                              if (accountData.account_parent) {
+                                navigate(`/v2/accounts?account_id=${accountData.account_parent.account_id}`);
+                              }
+                            }}
+                          />
                           <FieldItem label="CREATED" value={new Date(accountData.account_created_at).toLocaleString('en-GB')} />
                         </div>
                       </CollapsibleSection>
@@ -222,7 +238,10 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
                                      {contact.contact_firstname?.[0] || ''}{contact.contact_lastname?.[0] || ''}
                                   </div>
                                   <div>
-                                     <div className="font-semibold text-sm text-blue-600 group-hover:underline cursor-pointer">
+                                     <div
+                                       className="font-semibold text-sm text-blue-600 group-hover:underline cursor-pointer"
+                                       onClick={() => navigate(`/v2/contacts?contact_id=${contact.contact_id}`)}
+                                     >
                                         {contact.contact_firstname} {contact.contact_lastname}
                                      </div>
                                      <div className="text-xs text-slate-500 mt-0.5">
@@ -251,7 +270,10 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
                           {accountData.opportunities.map(opportunity => (
                             <div key={opportunity.opportunity_id} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center">
                                <div>
-                                  <div className="font-semibold text-sm text-blue-600">
+                                  <div
+                                    className="font-semibold text-sm text-blue-600 hover:underline cursor-pointer"
+                                    onClick={() => navigate(`/v2/opportunities?opportunity_id=${opportunity.opportunity_id}`)}
+                                  >
                                      {opportunity.opportunity_name}
                                   </div>
                                   <div className="text-xs text-slate-500 mt-0.5">
@@ -280,7 +302,12 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
                           {accountData.account_children.map(child => (
                             <div key={child.account_id} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center">
                                <div>
-                                  <div className="font-semibold text-sm text-blue-600">{child.account_name}</div>
+                                  <div
+                                    className="font-semibold text-sm text-blue-600 hover:underline cursor-pointer"
+                                    onClick={() => navigate(`/v2/accounts?account_id=${child.account_id}`)}
+                                  >
+                                     {child.account_name}
+                                  </div>
                                   <div className="text-xs text-slate-500 mt-0.5">{child.account_code}</div>
                                </div>
                                <div className="text-[10px] text-slate-400 uppercase tracking-wider">{child.account_account_status || 'ACTIVE'}</div>
@@ -312,25 +339,12 @@ const AccountDetailView = ({ isOpen, onClose, accountId, onEdit }) => {
                         <RelatedItem 
                           key={contact.contact_id} 
                           name={`${contact.contact_firstname || ''} ${contact.contact_lastname || ''}`.trim() || 'Unknown'} 
+                          onClick={() => navigate(`/v2/contacts?contact_id=${contact.contact_id}`)}
                         />
                       ))
                     ) : (
                       <div className="px-4 py-3 text-sm text-slate-500">No related contacts found.</div>
                     )}
-                  </div>
-                </div>
-
-                {/* Recent Card */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider bg-slate-50">
-                    RECENT
-                  </div>
-                  <div className="p-4 text-xs space-y-3 font-semibold">
-                    <RecentItem type="ACCOUNT" name="Swiss GRC" />
-                    <RecentItem type="CONTACT" name="Aarti Samant" />
-                    <RecentItem type="CONTACT" name="Aarti A" />
-                    <RecentItem type="CONTACT" name="Aarti Vishal Patil" />
-                    <RecentItem type="CONTACT" name="Aarti Kulkarni Bahulikar" />
                   </div>
                 </div>
 
@@ -388,40 +402,58 @@ const HighlightItem = ({ label, value }) => (
   </div>
 );
 
-const CollapsibleSection = ({ title, children }) => (
-  <div className="border-b border-slate-200 last:border-0">
-    <button className="w-full px-4 py-3 flex items-center gap-2 bg-slate-50 hover:bg-slate-100 transition-colors group">
-      <span className="text-[9px] transform transition-transform group-hover:text-blue-600 text-slate-400">▼</span>
-      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">{title}</span>
-    </button>
-    <div className="p-4 pt-6 px-6 pb-8">
-      {children}
+const CollapsibleSection = ({ title, children }) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="border-b border-slate-200 last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="w-full px-4 py-3 flex items-center gap-2 bg-slate-50 hover:bg-slate-100 transition-colors group"
+      >
+        <span className={`text-[9px] transform transition-transform group-hover:text-blue-600 text-slate-400 ${open ? "" : "-rotate-90"}`}>▼</span>
+        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">{title}</span>
+      </button>
+      {open && (
+        <div className="p-4 pt-6 px-6 pb-8">
+          {children}
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
-const FieldItem = ({ label, value, isLink, hasEdit }) => (
+const FieldItem = ({ label, value, isLink, onClick }) => (
   <div className="flex flex-col relative group">
     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</span>
     <div className="flex items-center justify-between border-b border-transparent group-hover:border-slate-200 pb-1 -mb-1 min-h-[24px]">
       {isLink && value && value !== "—" ? (
-        <a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-[13px] text-blue-600 hover:underline break-words font-semibold">
-          {value}
-        </a>
+        onClick ? (
+          <button
+            type="button"
+            onClick={onClick}
+            className="text-[13px] text-blue-600 hover:underline break-words font-semibold text-left"
+          >
+            {value}
+          </button>
+        ) : (
+          <a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-[13px] text-blue-600 hover:underline break-words font-semibold">
+            {value}
+          </a>
+        )
       ) : (
         <span className="text-[13px] text-slate-800 whitespace-pre-wrap font-medium">{value || "—"}</span>
-      )}
-      {hasEdit && (
-        <button className="text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Edit2 size={12} />
-        </button>
       )}
     </div>
   </div>
 );
 
-const RelatedItem = ({ name }) => (
-  <div className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer group transition-colors">
+const RelatedItem = ({ name, onClick }) => (
+  <div
+    onClick={onClick}
+    className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer group transition-colors"
+  >
     <div className="flex items-center gap-3">
       <div className="w-6 h-6 rounded bg-blue-50 flex items-center justify-center text-blue-600">
         <Users size={12} />
@@ -429,13 +461,6 @@ const RelatedItem = ({ name }) => (
       <span className="text-[13px] text-blue-600 font-semibold group-hover:underline">{name}</span>
     </div>
     <span className="text-slate-400">›</span>
-  </div>
-);
-
-const RecentItem = ({ type, name }) => (
-  <div className="flex items-center gap-2 cursor-pointer group">
-    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{type}</span>
-    <span className="text-[13px] text-blue-600 group-hover:underline font-semibold">{name}</span>
   </div>
 );
 
