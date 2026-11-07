@@ -457,7 +457,12 @@ const ConDetailView = ({ isOpen, onClose, contactId }) => {
                       right={{
                         label: "Project Name",
                         value: contactData.contact_project?.project_name || "—",
-                        isLink: false,
+                        isLink: !!contactData.contact_project,
+                        onClick: () => {
+                          if (contactData.contact_project) {
+                            navigate(`/v2/projects/${contactData.contact_project.project_id}`);
+                          }
+                        },
                       }}
                     />
                     <GridRow

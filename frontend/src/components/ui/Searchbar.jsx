@@ -69,7 +69,7 @@ const SearchBar = () => {
     } else if (result.type === "opportunity") {
       navigate(`/opportunities?opportunity_id=${result.id}`);
     } else if (result.type === "project") {
-      navigate(`/projects?project_id=${result.id}`);
+      navigate(`/v2/projects/${result.id}`);
     }
   };
 

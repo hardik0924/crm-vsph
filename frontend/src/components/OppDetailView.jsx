@@ -227,6 +227,21 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                               )}
                             </div>
                             <div className="flex flex-col">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Project</span>
+                              {oppData.opportunity_project ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/v2/projects/${oppData.opportunity_project.project_id}`)}
+                                  className="text-[13px] font-semibold text-blue-600 hover:underline text-left"
+                                >
+                                  {oppData.opportunity_project.project_name ||
+                                    `Project (${oppData.opportunity_project.project_location || "no location"})`}
+                                </button>
+                              ) : (
+                                <span className="text-[13px] text-slate-700">—</span>
+                              )}
+                            </div>
+                            <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Created</span>
                               <span className="text-[13px] text-slate-700">
                                 {oppData.opportunity_created_at ? new Date(oppData.opportunity_created_at).toLocaleString("en-GB") : "—"}
