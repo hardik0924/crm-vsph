@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { findOrCreateIndustry } from "../lib/industries.js";
-import { account_type } from "@prisma/client";
+import { account_type, Status } from "@prisma/client";
 import { getTenantFilter } from "../middleware/auth.middleware.js";
 
 export const getAccountTypes = async (req, res) => {
@@ -15,14 +15,19 @@ export const getAccountTypes = async (req, res) => {
 
 export const getAccounts = async (req, res) => {
   try {
-    const { page = 1, limit = 50, search = "" } = req.query;
+    const { page = 1, limit = 50, search = "", status = "" } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
+    const tenant = getTenantFilter(req);
+
+    if (status && !Object.values(Status).includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status filter" });
+    }
 
     const where = {
       account_deleted_at: null,
-      ...getTenantFilter(req),
+      ...tenant,
     };
 
     if (search) {
@@ -32,9 +37,10 @@ export const getAccounts = async (req, res) => {
         { account_city: { contains: search } },
       ];
     }
+    if (status) where.account_account_status = status;
 
     // Run both count and findMany concurrently for better performance
-    const [accounts, totalRecords] = await Promise.all([
+    const [accounts, totalRecords, byStatusRows, withContacts, industriesRows] = await Promise.all([
       prisma.account.findMany({
         where,
         skip,
@@ -52,9 +58,31 @@ export const getAccounts = async (req, res) => {
         },
       }),
       prisma.account.count({ where }),
+      prisma.account.groupBy({
+        by: ["account_account_status"],
+        where: { account_deleted_at: null, ...tenant },
+        _count: { _all: true },
+      }),
+      prisma.account.count({
+        where: {
+          account_deleted_at: null,
+          account_contacts: { some: { contact_deleted_at: null } },
+          ...tenant,
+        },
+      }),
+      prisma.account.groupBy({
+        by: ["account_industry_fk"],
+        where: { account_deleted_at: null, account_industry_fk: { not: null }, ...tenant },
+        _count: { _all: true },
+      }),
     ]);
 
     console.log("Accounts Fetched Successfully");
+
+    const byStatus = Object.fromEntries(Object.values(Status).map((value) => [value, 0]));
+    for (const row of byStatusRows) {
+      if (row.account_account_status) byStatus[row.account_account_status] = row._count._all;
+    }
 
     res.status(200).json({
       success: true,
@@ -68,6 +96,12 @@ export const getAccounts = async (req, res) => {
         totalRecords,
         currentPage: Number(page),
         totalPages: Math.ceil(totalRecords / take),
+      },
+      summary: {
+        total: byStatusRows.reduce((sum, row) => sum + row._count._all, 0),
+        byStatus,
+        withContacts,
+        industries: industriesRows.length,
       },
     });
   } catch (error) {

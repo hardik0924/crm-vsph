@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { stage as Stage } from "@prisma/client";
 import { getTenantFilter } from "../middleware/auth.middleware.js";
 
 export const getOpportunities = async (req, res) => {
@@ -6,9 +7,14 @@ export const getOpportunities = async (req, res) => {
     const { page = 1, limit = 20, search = "", stage = "" } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
+    const tenant = getTenantFilter(req);
+
+    if (stage && !Object.values(Stage).includes(stage)) {
+      return res.status(400).json({ success: false, message: "Invalid stage filter" });
+    }
 
     const where = {
-      ...getTenantFilter(req),
+      ...tenant,
     };
     if (search) {
       where.OR = [{ opportunity_name: { contains: search } }];
@@ -17,7 +23,7 @@ export const getOpportunities = async (req, res) => {
       where.opportunity_stage = stage;
     }
 
-    const [opportunities, totalRecords] = await Promise.all([
+    const [opportunities, totalRecords, byStageRows] = await Promise.all([
       prisma.opportunity.findMany({
         where,
         skip,
@@ -32,9 +38,19 @@ export const getOpportunities = async (req, res) => {
         },
       }),
       prisma.opportunity.count({ where }),
+      prisma.opportunity.groupBy({
+        by: ["opportunity_stage"],
+        where: { ...tenant },
+        _count: { _all: true },
+      }),
     ]);
 
     console.log("Opportunities Fetched Successfully");
+
+    const byStage = Object.fromEntries(Object.values(Stage).map((value) => [value, 0]));
+    for (const row of byStageRows) {
+      if (row.opportunity_stage) byStage[row.opportunity_stage] = row._count._all;
+    }
 
     res.status(200).json({
       success: true,
@@ -43,6 +59,10 @@ export const getOpportunities = async (req, res) => {
         totalRecords,
         currentPage: Number(page),
         totalPages: Math.ceil(totalRecords / take),
+      },
+      summary: {
+        total: byStageRows.reduce((sum, row) => sum + row._count._all, 0),
+        byStage,
       },
     });
   } catch (error) {

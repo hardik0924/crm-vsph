@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { call_status } from "@prisma/client";
 import { getTenantFilter } from "../middleware/auth.middleware.js";
 import { findOrCreateIndustry } from "../lib/industries.js";
 
@@ -8,24 +9,28 @@ export const getContacts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
     const search = req.query.search || "";
+    const status = req.query.status || "";
+    const tenant = getTenantFilter(req);
+
+    if (status && !Object.values(call_status).includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid call status filter" });
+    }
 
     // Search by name, code, email or linked account name. Soft-deleted rows never come back.
-    const where = search
-      ? {
-          contact_deleted_at: null,
-          OR: [
-            { contact_firstname: { contains: search } },
-            { contact_lastname: { contains: search } },
-            { contact_code: { contains: search } },
-            { contact_professional_email: { contains: search } },
-            { account: { account_name: { contains: search } } },
-          ],
-          ...getTenantFilter(req),
-        }
-      : { contact_deleted_at: null, ...getTenantFilter(req) };
+    const where = { contact_deleted_at: null, ...tenant };
+    if (search) {
+      where.OR = [
+        { contact_firstname: { contains: search } },
+        { contact_lastname: { contains: search } },
+        { contact_code: { contains: search } },
+        { contact_professional_email: { contains: search } },
+        { account: { account_name: { contains: search } } },
+      ];
+    }
+    if (status) where.contact_call_status = status;
 
     // Fetch data and count in parallel
-    const [contacts, total] = await Promise.all([
+    const [contacts, total, byCallStatusRows, withAccount] = await Promise.all([
       prisma.contact.findMany({
         where,
         skip,
@@ -37,8 +42,21 @@ export const getContacts = async (req, res) => {
         orderBy: { contact_created_at: "desc" },
       }),
       prisma.contact.count({ where }),
+      prisma.contact.groupBy({
+        by: ["contact_call_status"],
+        where: { contact_deleted_at: null, ...tenant },
+        _count: { _all: true },
+      }),
+      prisma.contact.count({
+        where: { contact_deleted_at: null, contact_account_fk: { not: null }, ...tenant },
+      }),
     ]);
     console.log("Contacts Fetched Successfully");
+
+    const byCallStatus = Object.fromEntries(Object.values(call_status).map((value) => [value, 0]));
+    for (const row of byCallStatusRows) {
+      if (row.contact_call_status) byCallStatus[row.contact_call_status] = row._count._all;
+    }
 
     res.status(200).json({
       success: true,
@@ -48,6 +66,11 @@ export const getContacts = async (req, res) => {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
         limit,
+      },
+      summary: {
+        total: byCallStatusRows.reduce((sum, row) => sum + row._count._all, 0),
+        byCallStatus,
+        withAccount,
       },
     });
   } catch (error) {
