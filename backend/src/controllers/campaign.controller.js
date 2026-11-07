@@ -98,7 +98,7 @@ const buildCampaignData = async (body, existing, { tenantId, userId, isManager }
         where: {
           tenant_fk: tenantId,
           campaign_code: code.value,
-          campaign_deleted_at: null,
+          // Soft-deleted campaigns keep their code and the unique index still counts them.
           ...(existing ? { campaign_id: { not: existing.campaign_id } } : {}),
         },
         select: { campaign_id: true },

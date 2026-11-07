@@ -310,6 +310,13 @@ test("campaign management: CRUD, relationships, permissions and tenant isolation
     assert.ok(keptTask);
     assert.equal(keptTask.task_campaign_fk, null);
     assert.equal((await call(adminToken, "GET", `/api/campaigns/${campaignId}`)).status, 404);
+
+    // A soft-deleted campaign keeps its unique code, so reuse is rejected cleanly.
+    const reusedCode = await call(adminToken, "POST", "/api/campaigns", {
+      campaign_name: "Reuse deleted code",
+      campaign_code: created.body.data.campaign_code,
+    });
+    assert.equal(reusedCode.status, 400);
   } finally {
     await new Promise((resolve) => {
       server.close(resolve);
