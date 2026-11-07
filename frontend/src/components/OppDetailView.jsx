@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
-import { TrendingUp, Users, Briefcase, Calendar, Edit2, MoreHorizontal } from "lucide-react";
+import { Users, Briefcase, MoreHorizontal } from "lucide-react";
 import Button from "./ui/Button";
 import AddContactModal from "./modals/AddContactModal";
 import ActivityFeed from "./ActivityFeed";
 import Breadcrumbs from "./ui/Breadcrumbs";
 import { canDoAction } from "../utils/modules";
+import toast from "react-hot-toast";
 
 const STAGE_COLORS = {
   PITCH_DONE: "bg-vsph-core-blue text-white",
@@ -17,7 +18,7 @@ const STAGE_COLORS = {
   UNASSIGNED: "bg-slate-300 text-slate-600",
 };
 
-const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
+const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit, onDeleted }) => {
   const navigate = useNavigate();
   const canCreateContact = canDoAction("CONTACTS", "CREATE");
   const canEdit = canDoAction("OPPORTUNITIES", "EDIT");
@@ -28,20 +29,26 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
+  const loadOpportunity = () => {
+    if (!opportunityId) return;
+    setLoading(true);
+    return api
+      .get(`/api/opportunities/${opportunityId}`)
+      .then((res) => {
+        if (res.success) setOppData(res.data);
+      })
+      .catch((error) => console.error("Error fetching opportunity details:", error))
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (isOpen && opportunityId) {
-      setLoading(true);
-      api
-        .get(`/api/opportunities/${opportunityId}`)
-        .then((res) => {
-          if (res.success) setOppData(res.data);
-        })
-        .catch((error) => console.error("Error fetching opportunity details:", error))
-        .finally(() => setLoading(false));
+      loadOpportunity();
     } else {
       setOppData(null);
       setActiveTab("Details");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, opportunityId]);
 
   if (!isOpen) return null;
@@ -107,7 +114,11 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                               if (window.confirm(`Delete opportunity "${oppData.opportunity_name}"?`)) {
                                 api.delete(`/api/opportunities/${opportunityId}`).then((res) => {
                                   if (res.success) {
+                                    toast.success("Opportunity deleted");
                                     onClose();
+                                    onDeleted?.();
+                                  } else {
+                                    toast.error(res.message || "Could not delete opportunity");
                                   }
                                 });
                               }
@@ -138,7 +149,17 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                 </div>
                 <div className="flex flex-col min-w-[120px]">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Account</span>
-                  <span className="text-[13px] text-slate-800 font-semibold">{oppData.opportunity_account?.account_name || "—"}</span>
+                  {oppData.opportunity_account?.account_id ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/v2/accounts?account_id=${oppData.opportunity_account.account_id}`)}
+                      className="text-[13px] font-semibold text-blue-600 hover:underline text-left"
+                    >
+                      {oppData.opportunity_account.account_name}
+                    </button>
+                  ) : (
+                    <span className="text-[13px] text-slate-800 font-semibold">—</span>
+                  )}
                 </div>
                 <div className="flex flex-col min-w-[120px]">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Stage</span>
@@ -176,10 +197,9 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                   {activeTab === "Details" && (
                     <div className="p-0">
                       <div className="border-b border-slate-200 last:border-0">
-                        <button className="w-full px-4 py-3 flex items-center gap-2 bg-slate-50 hover:bg-slate-100 transition-colors group">
-                          <span className="text-[9px] transform transition-transform group-hover:text-blue-600 text-slate-400">▼</span>
+                        <div className="px-4 py-3 flex items-center gap-2 bg-slate-50">
                           <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Opportunity Information</span>
-                        </button>
+                        </div>
                         <div className="p-4 pt-6 px-6 pb-8">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
                             <div className="flex flex-col">
@@ -204,13 +224,31 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Account</span>
-                              <span className="text-[13px] text-slate-700">{oppData.opportunity_account?.account_name || "—"}</span>
+                              {oppData.opportunity_account?.account_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/v2/accounts?account_id=${oppData.opportunity_account.account_id}`)}
+                                  className="text-[13px] font-semibold text-blue-600 hover:underline text-left"
+                                >
+                                  {oppData.opportunity_account.account_name}
+                                </button>
+                              ) : (
+                                <span className="text-[13px] text-slate-700">—</span>
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Contact</span>
-                              <span className="text-[13px] text-slate-700">
-                                {oppData.opportunity_contact ? `${oppData.opportunity_contact.contact_firstname || ""} ${oppData.opportunity_contact.contact_lastname || ""}`.trim() : "—"}
-                              </span>
+                              {oppData.opportunity_contact?.contact_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/v2/contacts?contact_id=${oppData.opportunity_contact.contact_id}`)}
+                                  className="text-[13px] font-semibold text-blue-600 hover:underline text-left"
+                                >
+                                  {`${oppData.opportunity_contact.contact_firstname || ""} ${oppData.opportunity_contact.contact_lastname || ""}`.trim() || "Unnamed contact"}
+                                </button>
+                              ) : (
+                                <span className="text-[13px] text-slate-700">—</span>
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Campaign</span>
@@ -265,7 +303,17 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
                   <div className="p-4 text-xs space-y-3 font-semibold">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-600">Account</span>
-                      <span className="text-slate-800">{oppData.opportunity_account?.account_name || "—"}</span>
+                      {oppData.opportunity_account?.account_id ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/v2/accounts?account_id=${oppData.opportunity_account.account_id}`)}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {oppData.opportunity_account.account_name}
+                        </button>
+                      ) : (
+                        <span className="text-slate-800">—</span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-600">Owner</span>
@@ -293,8 +341,19 @@ const OppDetailView = ({ isOpen, onClose, opportunityId, onEdit }) => {
         <AddContactModal
           isOpen={addContactOpen}
           onClose={() => setAddContactOpen(false)}
-          onSuccess={() => setAddContactOpen(false)}
+          onSuccess={(contact) => {
+            setAddContactOpen(false);
+            if (contact?.contact_id) {
+              api
+                .put(`/api/opportunities/${opportunityId}`, { opportunity_contact_fk: contact.contact_id })
+                .then((res) => {
+                  if (res.success) loadOpportunity();
+                  else toast.error(res.message || "Contact created but could not link it to this opportunity");
+                });
+            }
+          }}
           contactToEdit={null}
+          defaultAccountId={oppData.opportunity_account?.account_id}
         />
       )}
     </div>
