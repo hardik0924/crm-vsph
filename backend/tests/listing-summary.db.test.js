@@ -9,7 +9,7 @@ const runDbTests = process.env.RUN_DB_TESTS === "1";
 
 process.env.AUTH_TOKEN_SECRET ||= "listing-summary-test-secret-key-32-chars";
 
-test("contacts, accounts and opportunities listings return real summaries and filters", { skip: !runDbTests }, async () => {
+test("contacts, accounts, opportunities and tasks listings return real summaries and filters", { skip: !runDbTests }, async () => {
   const stamp = Date.now();
   const tenant = await prisma.tenant.create({
     data: { tenant_name: "Listing", tenant_code: `LS${stamp}`.slice(0, 20), tenant_status: "ACTIVE" },
@@ -95,6 +95,24 @@ test("contacts, accounts and opportunities listings return real summaries and fi
       },
     ],
   });
+  await prisma.task.createMany({
+    data: [
+      {
+        tenant_fk: tenant.tenant_id,
+        task_user_fk: admin.user_id,
+        task_subject: "Overdue task",
+        task_status: "TODO",
+        task_due_date: new Date("2020-01-01"),
+      },
+      {
+        tenant_fk: tenant.tenant_id,
+        task_user_fk: admin.user_id,
+        task_subject: "Finished task",
+        task_status: "COMPLETED",
+        task_due_date: new Date("2020-01-01"),
+      },
+    ],
+  });
 
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -140,6 +158,18 @@ test("contacts, accounts and opportunities listings return real summaries and fi
     assert.equal(filteredOpportunities.body.data.length, 1);
     assert.equal(filteredOpportunities.body.data[0].opportunity_name, "Won deal");
     assert.equal((await get("/api/opportunities?stage=NOPE")).status, 400);
+
+    const tasks = await get("/api/tasks?page=1&limit=20");
+    assert.equal(tasks.status, 200);
+    assert.equal(tasks.body.summary.total, 2);
+    assert.equal(tasks.body.summary.byStatus.TODO, 1);
+    assert.equal(tasks.body.summary.byStatus.COMPLETED, 1);
+    assert.equal(tasks.body.summary.overdue, 1);
+
+    const filteredTasks = await get("/api/tasks?status=TODO");
+    assert.equal(filteredTasks.body.data.length, 1);
+    assert.equal(filteredTasks.body.data[0].task_subject, "Overdue task");
+    assert.equal((await get("/api/tasks?status=NOPE")).status, 400);
   } finally {
     await new Promise((resolve) => {
       server.close(resolve);
@@ -147,6 +177,7 @@ test("contacts, accounts and opportunities listings return real summaries and fi
     });
     await prisma.contact.deleteMany({ where: { tenant_fk: tenant.tenant_id } });
     await prisma.opportunity.deleteMany({ where: { tenant_fk: tenant.tenant_id } });
+    await prisma.task.deleteMany({ where: { tenant_fk: tenant.tenant_id } });
     await prisma.account.deleteMany({ where: { tenant_fk: tenant.tenant_id } });
     await prisma.industry.deleteMany({ where: { tenant_fk: tenant.tenant_id } });
     await prisma.user.deleteMany({ where: { tenant_fk: tenant.tenant_id } });

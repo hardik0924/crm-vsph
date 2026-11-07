@@ -2,6 +2,8 @@ import { prisma } from "../lib/prisma.js";
 import { getTenantFilter } from "../middleware/auth.middleware.js";
 import { isEmployee } from "../lib/roles.js";
 import {
+  TASK_PRIORITIES,
+  TASK_STATUSES,
   assertEmployeeTaskPatch,
   canAssignTaskTo,
   canTransition,
@@ -172,7 +174,10 @@ export const getTasks = async (req, res) => {
     }
     if (search) where.task_subject = { contains: search };
 
-    const [tasks, totalRecords] = await Promise.all([
+    const summaryWhere = { task_deleted_at: null, ...getTenantFilter(req) };
+    if (isEmployee(req.user)) summaryWhere.task_user_fk = req.user.id;
+
+    const [tasks, totalRecords, statusRows, priorityRows, overdue] = await Promise.all([
       prisma.task.findMany({
         where,
         skip,
@@ -184,7 +189,31 @@ export const getTasks = async (req, res) => {
         orderBy: { task_created_at: "desc" },
       }),
       prisma.task.count({ where }),
+      prisma.task.groupBy({
+        by: ["task_status"],
+        where: summaryWhere,
+        _count: { _all: true },
+      }),
+      prisma.task.groupBy({
+        by: ["task_priority"],
+        where: summaryWhere,
+        _count: { _all: true },
+      }),
+      prisma.task.count({
+        where: {
+          ...summaryWhere,
+          task_due_date: { lt: new Date() },
+          task_status: { not: "COMPLETED" },
+        },
+      }),
     ]);
+
+    const byStatus = Object.fromEntries(TASK_STATUSES.map((value) => [value, 0]));
+    for (const row of statusRows) byStatus[row.task_status] = row._count._all;
+    const byPriority = Object.fromEntries(TASK_PRIORITIES.map((value) => [value, 0]));
+    for (const row of priorityRows) {
+      if (row.task_priority) byPriority[row.task_priority] = row._count._all;
+    }
 
     res.status(200).json({
       success: true,
@@ -193,6 +222,12 @@ export const getTasks = async (req, res) => {
         totalRecords,
         currentPage: Number(page),
         totalPages: Math.ceil(totalRecords / take),
+      },
+      summary: {
+        total: statusRows.reduce((sum, row) => sum + row._count._all, 0),
+        byStatus,
+        byPriority,
+        overdue,
       },
     });
   } catch (error) {
