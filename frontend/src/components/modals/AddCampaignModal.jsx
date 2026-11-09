@@ -400,26 +400,9 @@ const AddCampaignModal = ({ isOpen, onClose, onSuccess, campaignToEdit }) => {
           </Section>
 
           <Section
-            title="Budget and targets"
-            hint={
-              manager
-                ? "Amounts are optional and stored as plain numbers in the organization's currency."
-                : "Budgets are managed by organization administrators. Targets are yours to set."
-            }
+            title="Performance targets"
+            hint="Manually set the goals you want this campaign to reach. Actuals are computed from linked contacts and opportunities on the campaign detail page."
           >
-            {manager && (
-              <>
-                <Field label="Planned budget">
-                  <input type="number" min="0" step="0.01" name="campaign_planned_budget" value={formData.campaign_planned_budget} onChange={update} className={inputClass} />
-                </Field>
-                <Field label="Actual cost">
-                  <input type="number" min="0" step="0.01" name="campaign_actual_cost" value={formData.campaign_actual_cost} onChange={update} className={inputClass} />
-                </Field>
-                <Field label="Expected revenue">
-                  <input type="number" min="0" step="0.01" name="campaign_expected_revenue" value={formData.campaign_expected_revenue} onChange={update} className={inputClass} />
-                </Field>
-              </>
-            )}
             <Field label="Target contacts">
               <input type="number" min="0" step="1" name="campaign_target_contacts" value={formData.campaign_target_contacts} onChange={update} className={inputClass} />
             </Field>
@@ -430,6 +413,23 @@ const AddCampaignModal = ({ isOpen, onClose, onSuccess, campaignToEdit }) => {
               <input type="number" min="0" step="1" name="campaign_target_opportunities" value={formData.campaign_target_opportunities} onChange={update} className={inputClass} />
             </Field>
           </Section>
+
+          {manager && (
+            <Section
+              title="Budget"
+              hint="Amounts are optional and stored as plain numbers in the organization's currency."
+            >
+              <Field label="Planned budget">
+                <input type="number" min="0" step="0.01" name="campaign_planned_budget" value={formData.campaign_planned_budget} onChange={update} className={inputClass} />
+              </Field>
+              <Field label="Actual cost">
+                <input type="number" min="0" step="0.01" name="campaign_actual_cost" value={formData.campaign_actual_cost} onChange={update} className={inputClass} />
+              </Field>
+              <Field label="Expected revenue">
+                <input type="number" min="0" step="0.01" name="campaign_expected_revenue" value={formData.campaign_expected_revenue} onChange={update} className={inputClass} />
+              </Field>
+            </Section>
+          )}
 
           <Section
             title="Target audience"
